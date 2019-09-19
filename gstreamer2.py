@@ -75,53 +75,37 @@ def detectCoralDevBoard():
 
 def run_pipeline(user_function,
                  src_size=(640, 480),
-                 appsink_size=(320, 180),
-                 use_appsrc=False):
-    PIPELINE = 'rtspsrc location=rtsp://admin:1Bigred1@192.168.0.51:554//h264Preview_01_sub ! rtpjitterbuffer latency=300 ! rtph264depay ! h264parse ! omxh264dec ! {src_caps} ! {leaky_q} '
-    if use_appsrc: APPSRC_PIPELINE = 'appsrc name=appsrc ! {appsrc_caps} '
-    SRC_CAPS = 'video/x-raw,width={width},height={height}'
-    if use_appsrc:
-        PIPELINE += """ ! videoconvert ! videoscale ! {sink_caps} ! {leaky_q} ! {sink_element}
-        """
-        APPSRC_PIPELINE += """ ! {leaky_q} ! videoconvert
-           ! rsvgoverlay name=overlay ! videoconvert ! nveglglessink window-x=100 window-y=500 window-width=640 window-height=480
-        """
-    else:
-        PIPELINE += """ ! videoconvert ! videoscale ! {sink_caps} ! tee name=t
-           t. ! {leaky_q} ! {sink_element}
-           t. ! {leaky_q} ! videoconvert
-              ! rsvgoverlay name=overlay ! videoconvert ! nveglglessink window-x=100 window-y=500 window-width=640 window-height=480
-        """
+                 appsink_size=(320, 180)):
+    PIPELINE = """ rtspsrc location=rtsp://admin:1Bigred1@192.168.0.51:554//h264Preview_01_sub 
+        ! rtpjitterbuffer latency=300 ! rtph264depay ! h264parse ! omxh264dec ! {src_caps} ! {leaky_q} 
+        ! nvvidconv ! {accelerated_sink_caps} ! videoconvert ! {src_caps} ! tee name=t
+            t. ! {leaky_q} ! {sink_element}
+            t. ! {leaky_q} ! videoconvert
+                ! rsvgoverlay name=overlay ! videoconvert 
+                ! nveglglessink window-x=100 window-y=500 window-width=640 window-height=480
+    """
 
-    SINK_ELEMENT = 'appsink name=appsink sync=false emit-signals=true max-buffers=1 drop=true'
-    DL_CAPS = 'video/x-raw,format=BGRA,width={width},height={height}'
-    SINK_CAPS = 'video/x-raw,format=RGB,width={width},height={height}'
-    APPSRC_CAPS = 'video/x-raw,format=RGB,width={width},height={height}'
+    SRC_CAPS = 'video/x-raw,width={width},height={height}'
     LEAKY_Q = 'queue max-size-buffers=1 leaky=downstream'
+    SINK_ELEMENT = 'appsink name=appsink sync=false emit-signals=true max-buffers=1 drop=true'
+    ACCELERATED_SINK_CAPS = 'video/x-raw,format=RGBA,width={width},height={height}'
+    SINK_CAPS = 'video/x-raw,format=RGB,width={width},height={height}'
     
     src_caps = SRC_CAPS.format(width=src_size[0], height=src_size[1])
-    dl_caps = DL_CAPS.format(width=appsink_size[0], height=appsink_size[1])
+    accelerated_sink_caps = ACCELERATED_SINK_CAPS.format(width=appsink_size[0], height=appsink_size[1])
     sink_caps = SINK_CAPS.format(width=appsink_size[0], height=appsink_size[1])
-    pipeline = PIPELINE.format(leaky_q=LEAKY_Q, src_caps=src_caps, dl_caps=dl_caps,
+    
+    pipeline = PIPELINE.format(leaky_q=LEAKY_Q, src_caps=src_caps,
+                               accelerated_sink_caps=accelerated_sink_caps,
                                sink_caps=sink_caps, sink_element=SINK_ELEMENT)
+    
     print('Gstreamer pipeline: ', pipeline)
     pipeline = Gst.parse_launch(pipeline)
     appsink = pipeline.get_by_name('appsink')
-
-    if use_appsrc:
-        appsrc_caps = APPSRC_CAPS.format(width=appsink_size[0], height=appsink_size[1])
-        appsrc_pipeline = APPSRC_PIPELINE.format(leaky_q=LEAKY_Q,
-                                                 appsrc_caps=appsrc_caps)
-        print('Gstreamer appsrc pipeline: ', appsrc_pipeline)
-        appsrc_pipeline = Gst.parse_launch(appsrc_pipeline)
-        appsrc = appsrc_pipeline.get_by_name('appsrc')
-        overlay = appsrc_pipeline.get_by_name('overlay')
-    else:
-        appsrc = None
-        overlay = pipeline.get_by_name('overlay')
+    overlay = pipeline.get_by_name('overlay')    
 
     appsink.connect('new-sample', partial(on_new_sample,
-                                          appsrc=appsrc, overlay=overlay,
+                                          overlay=overlay,
                                           screen_size=src_size, appsink_size=appsink_size,
                                           user_function=user_function))
     loop = GObject.MainLoop()
@@ -133,7 +117,6 @@ def run_pipeline(user_function,
 
     # Run pipeline.
     pipeline.set_state(Gst.State.PLAYING)
-    if use_appsrc: appsrc_pipeline.set_state(Gst.State.PLAYING)
     try:
         loop.run()
     except:
@@ -141,6 +124,5 @@ def run_pipeline(user_function,
 
     # Clean up.
     pipeline.set_state(Gst.State.NULL)
-    if use_appsrc: appsrc_pipeline.set_state(Gst.State.NULL)
     while GLib.MainContext.default().iteration(False):
         pass

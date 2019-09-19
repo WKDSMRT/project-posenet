@@ -69,7 +69,7 @@ def draw_pose(dwg, pose, color='yellow', threshold=0.2):
         dwg.add(dwg.line(start=(ax, ay), end=(bx, by), stroke=color, stroke_width=2))
 
 
-def run(callback, use_appsrc=False):
+def run(callback):
     parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument('--model', help='.tflite model path.', required=False)
     parser.add_argument('--res', help='Resolution', default='640x480',
@@ -93,8 +93,7 @@ def run(callback, use_appsrc=False):
     print('Loading model: ', model)
     engine = PoseEngine(model, mirror=False)
     gstreamer2.run_pipeline(partial(callback, engine),
-                           src_size, appsink_size,
-                           use_appsrc=use_appsrc)
+                           src_size, appsink_size)
 
 
 def main():
