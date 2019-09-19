@@ -74,26 +74,33 @@ def run(callback):
     parser.add_argument('--model', help='.tflite model path.', required=False)
     parser.add_argument('--res', help='Resolution', default='640x480',
                         choices=['480x360', '640x480', '1280x720'])
+    parser.add_argument('--camera', help='Camera', default='ip',
+                        choices=['ip', 'built-in', 'realsense'])
     args = parser.parse_args()
 
     default_model = 'models/posenet_mobilenet_v1_075_%d_%d_quant_decoder_edgetpu.tflite'
     if args.res == '480x360':
-        src_size = (640, 480)
         appsink_size = (480, 360)
         model = args.model or default_model % (353, 481)
     elif args.res == '640x480':
-        src_size = (640, 480)
         appsink_size = (640, 480)
         model = args.model or default_model % (481, 641)
     elif args.res == '1280x720':
-        src_size = (1280, 720)
         appsink_size = (1280, 720)
         model = args.model or default_model % (721, 1281)
+    camera = args.camera
+
+    if camera == 'ip':
+        src_size = (640, 480)
+    elif camera == 'built-in':
+        src_size = (1280, 720)
+    elif camera == 'realsense':
+        src_size = (1920, 1080)
 
     print('Loading model: ', model)
     engine = PoseEngine(model, mirror=False)
     gstreamer2.run_pipeline(partial(callback, engine),
-                           src_size, appsink_size)
+                           src_size, appsink_size, camera)
 
 
 def main():
