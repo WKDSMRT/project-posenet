@@ -41,7 +41,7 @@ def on_bus_message(bus, message, loop):
     return True
 
 
-def on_new_sample(sink, appsrc, overlay, screen_size, appsink_size,
+def on_new_sample(sink, overlay, screen_size, appsink_size,
                   user_function):
     sample = sink.emit('pull-sample')
     buf = sample.get_buffer()
@@ -51,41 +51,23 @@ def on_new_sample(sink, appsrc, overlay, screen_size, appsink_size,
         img = np.reshape(img, [appsink_size[1], appsink_size[0], -1])
         svg_canvas = svgwrite.Drawing('', size=(screen_size[0], screen_size[1]))
         appsrc_image = user_function(img, svg_canvas)
-
-        if appsrc:
-            data = appsrc_image.tobytes()
-            appsrc_buffer = Gst.Buffer.new_allocate(None, len(data), None)
-            appsrc_buffer.fill(0, data)
-            appsrc.emit('push-buffer', appsrc_buffer)
-
         overlay.set_property('data', svg_canvas.tostring())
     buf.unmap(mapinfo)
     return Gst.FlowReturn.OK
-
-
-def detectCoralDevBoard():
-    try:
-        if 'MX8MQ' in open('/sys/firmware/devicetree/base/model').read():
-            print('Detected Edge TPU dev board.')
-            return True
-    except:
-        pass
-    return False
 
 
 def run_pipeline(user_function,
                  src_size=(640, 480),
                  appsink_size=(320, 180)):
     PIPELINE = """ rtspsrc location=rtsp://admin:1Bigred1@192.168.0.51:554//h264Preview_01_sub 
-        ! rtpjitterbuffer latency=300 ! rtph264depay ! h264parse ! omxh264dec ! {src_caps} ! {leaky_q} 
-        ! nvvidconv ! {accelerated_sink_caps} ! videoconvert ! {src_caps} ! tee name=t
+        ! {src_caps} ! rtpjitterbuffer latency=300 ! rtph264depay ! h264parse ! omxh264dec
+        ! nvvidconv ! {accelerated_sink_caps} ! videoconvert ! {sink_caps} ! tee name=t
             t. ! {leaky_q} ! {sink_element}
-            t. ! {leaky_q} ! videoconvert
-                ! rsvgoverlay name=overlay ! videoconvert 
-                ! nveglglessink window-x=100 window-y=500 window-width=640 window-height=480
+            t. ! videoconvert ! rsvgoverlay name=overlay ! videoconvert 
+               ! nveglglessink window-x=100 window-y=500 window-width=640 window-height=480
     """
 
-    SRC_CAPS = 'video/x-raw,width={width},height={height}'
+    SRC_CAPS = 'application/x-rtp,media=(string)video,encoding-name=(string)H264,payload=(int)96,width={width},height={height}'
     LEAKY_Q = 'queue max-size-buffers=1 leaky=downstream'
     SINK_ELEMENT = 'appsink name=appsink sync=false emit-signals=true max-buffers=1 drop=true'
     ACCELERATED_SINK_CAPS = 'video/x-raw,format=RGBA,width={width},height={height}'
