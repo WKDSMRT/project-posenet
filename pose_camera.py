@@ -20,7 +20,7 @@ import time
 import numpy as np
 from PIL import Image
 import svgwrite
-import gstreamer
+import gstreamer2
 
 from pose_engine import PoseEngine
 
@@ -71,12 +71,9 @@ def draw_pose(dwg, pose, color='yellow', threshold=0.2):
 
 def run(callback, use_appsrc=False):
     parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-    parser.add_argument('--mirror', help='flip video horizontally', action='store_true')
     parser.add_argument('--model', help='.tflite model path.', required=False)
     parser.add_argument('--res', help='Resolution', default='640x480',
                         choices=['480x360', '640x480', '1280x720'])
-    parser.add_argument('--videosrc', help='Which video source to use', default='/dev/video0')
-    parser.add_argument('--h264', help='Use video/x-h264 input', action='store_true')
     args = parser.parse_args()
 
     default_model = 'models/posenet_mobilenet_v1_075_%d_%d_quant_decoder_edgetpu.tflite'
@@ -94,11 +91,10 @@ def run(callback, use_appsrc=False):
         model = args.model or default_model % (721, 1281)
 
     print('Loading model: ', model)
-    engine = PoseEngine(model, mirror=args.mirror)
-    gstreamer.run_pipeline(partial(callback, engine),
+    engine = PoseEngine(model, mirror=False)
+    gstreamer2.run_pipeline(partial(callback, engine),
                            src_size, appsink_size,
-                           use_appsrc=use_appsrc, mirror=args.mirror,
-                           videosrc=args.videosrc, h264input=args.h264)
+                           use_appsrc=use_appsrc)
 
 
 def main():
