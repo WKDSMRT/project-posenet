@@ -74,19 +74,19 @@ def shadow_text(dwg, x, y, text, font_size=16):
                      font_size=font_size, style='font-family:sans-serif'))
 
 
-def draw_pose(dwg, pose, x_scalar, y_scalar, threshold=0.2):
+def draw_pose(dwg, pose, x_scalar, y_scalar, point_scalar, threshold=0.2):
     xys = {}
     for label, keypoint in pose.keypoints.items():
         if keypoint.score < threshold: continue
         xys[label] = (int(keypoint.yx[1] * x_scalar), int(keypoint.yx[0] * y_scalar))
-        dwg.add(dwg.circle(center=(int(keypoint.yx[1] * x_scalar), int(keypoint.yx[0] * y_scalar)), r=5,
-                           fill=COLORS[label], fill_opacity=keypoint.score, stroke=color))
+        dwg.add(dwg.circle(center=(int(keypoint.yx[1] * x_scalar), int(keypoint.yx[0] * y_scalar)), r=4 * point_scalar,
+                           fill=COLORS[label], fill_opacity=keypoint.score, stroke=COLORS[label]))
 
     for a, b in EDGES:
         if a not in xys or b not in xys: continue
         ax, ay = xys[a]
         bx, by = xys[b]
-        dwg.add(dwg.line(start=(ax, ay), end=(bx, by), stroke=COLORS[a], stroke_width=2 stroke_opacity=0.2))
+        dwg.add(dwg.line(start=(ax, ay), end=(bx, by), stroke=COLORS[a], stroke_width=4 * point_scalar, stroke_opacity=0.2))
 
 
 def run(callback):
@@ -122,8 +122,9 @@ def run(callback):
 
     x_scalar = src_size[0] / appsink_size[0]
     y_scalar = src_size[1] / appsink_size[1]
+    point_scalar = src_size[0] / 480;
     
-    gstreamer2.run_pipeline(partial(callback, engine, x_scalar, y_scalar),
+    gstreamer2.run_pipeline(partial(callback, engine, x_scalar, y_scalar, point_scalar),
                            src_size, appsink_size, camera)
 
 
@@ -134,7 +135,7 @@ def main():
     sum_process_time = 0
     sum_inference_time = 0
 
-    def render_overlay(engine, x_scalar, y_scalar, image, svg_canvas):
+    def render_overlay(engine, x_scalar, y_scalar, point_scalar, image, svg_canvas):
         nonlocal n, sum_fps, sum_process_time, sum_inference_time, last_time
         start_time = time.monotonic()
         outputs, inference_time = engine.DetectPosesInImage(image)
@@ -151,7 +152,7 @@ def main():
 
         shadow_text(svg_canvas, 10, 20, text_line)
         for pose in outputs:
-            draw_pose(svg_canvas, pose, x_scalar, y_scalar)
+            draw_pose(svg_canvas, pose, x_scalar, y_scalar, point_scalar)
 
     run(render_overlay)
 
