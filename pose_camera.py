@@ -123,7 +123,7 @@ def run(callback):
     x_scalar = src_size[0] / appsink_size[0]
     y_scalar = src_size[1] / appsink_size[1]
     point_scalar = src_size[0] / 480;
-    
+
     gstreamer2.run_pipeline(partial(callback, engine, x_scalar, y_scalar, point_scalar),
                            src_size, appsink_size, camera)
 
