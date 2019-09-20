@@ -123,7 +123,7 @@ def main():
         text_line = 'PoseNet: %.1fms Frame IO: %.2fms TrueFPS: %.2f Nposes %d' % (
             sum_inference_time / n, sum_process_time / n, sum_fps / n, len(outputs)
         )
-        print(text_line)
+        # print(text_line)
 
         shadow_text(svg_canvas, 10, 20, text_line)
         for pose in outputs:

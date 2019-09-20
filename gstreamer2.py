@@ -61,41 +61,42 @@ def run_pipeline(user_function,
                  appsink_size=(320, 180),
                  camera='ip'):
     if camera == 'ip':
-        SRC = """ rtspsrc location=rtsp://admin:1Bigred1@192.168.0.51:554//h264Preview_01_sub 
-            ! {src_caps} ! rtpjitterbuffer latency=300 ! rtph264depay ! h264parse ! omxh264dec """
-        SRC_CAPS = 'application/x-rtp, media=(string)video, encoding-name=(string)H264, payload=(int)96, width=(int){width}, height=(int){height}'
+        SRC = """rtspsrc location=rtsp://admin:1Bigred1@192.168.0.51:554//h264Preview_01_sub
+        ! {src_caps} ! rtpjitterbuffer latency=300 ! rtph264depay ! h264parse ! omxh264dec"""
+        SRC_CAPS = "application/x-rtp,media=(string)video,encoding-name=(string)H264,payload=(int)96,width=(int){width},height=(int){height}"
     elif camera == 'built-in':
-        SRC = """ nvarguscamerasrc -v ! {src_caps} """
-        SRC_CAPS = 'video/x-raw(memory:NVMM), format=(string)NV12, framerate=(fraction)120/1, width=(int){width}, height=(int){height}'
+        SRC = """nvarguscamerasrc ! {src_caps}"""
+        SRC_CAPS = "video/x-raw(memory:NVMM),format=(string)NV12,framerate=(fraction)120/1,width=(int){width},height=(int){height}"
     elif camera == 'realsense':
-        SRC = """ v4l2src device=/dev/video13 do-timestamp=true ! {src_caps} """
-        SRC_CAPS = 'video/x-raw(memory:NVMM), format=(string)YUY2, framerate=(fraction)30/1, width=(int){width}, height=(int){height}'
+        SRC = """v4l2src device=/dev/video13 do-timestamp=true ! {src_caps}"""
+        SRC_CAPS = "'video/x-raw(memory:NVMM),format=(string)YUY2,framerate=(fraction)30/1,width=(int){width},height=(int){height}'"
     
-    PIPELINE = """ {src} ! nvvidconv ! {accelerated_sink_caps} ! videoconvert ! {sink_caps} ! tee name=t
-        t. ! {leaky_q} ! {sink_element}
-        t. ! videoconvert ! rsvgoverlay name=overlay ! videoconvert 
-            ! nvoverlaysink -e
+    PIPELINE = """ {src} 
+        ! tee name=t
+        t. ! nvvidconv ! {accelerated_sink_caps} ! videoconvert ! {sink_caps} ! {leaky_q} ! {sink_element}
+        t. ! nvvidconv ! video/x-raw,format=(string)BGRx ! videoconvert ! rsvgoverlay name=overlay ! videoconvert ! nvvidconv
+           ! nveglglessink window-width={width} window-height={height}
     """
     
-    ACCELERATED_SINK_CAPS = 'video/x-raw(memory:NVMM),format=RGBA,width={width},height={height}'
+    ACCELERATED_SINK_CAPS = "video/x-raw,format=RGBA,width={width},height={height}"
     LEAKY_Q = 'queue max-size-buffers=1 leaky=downstream'
     SINK_ELEMENT = 'appsink name=appsink sync=false emit-signals=true max-buffers=1 drop=true'
     
-    SINK_CAPS = 'video/x-raw,format=RGB,width={width},height={height}'
+    SINK_CAPS = "video/x-raw,format=RGB,width={width},height={height}"
     
     src_caps = SRC_CAPS.format(width=src_size[0], height=src_size[1])
     src = SRC.format(src_caps=src_caps)
     accelerated_sink_caps = ACCELERATED_SINK_CAPS.format(width=appsink_size[0], height=appsink_size[1])
     sink_caps = SINK_CAPS.format(width=appsink_size[0], height=appsink_size[1])
     
-    pipeline = PIPELINE.format(leaky_q=LEAKY_Q, src=src, src_caps=src_caps,
+    pipeline = PIPELINE.format(width=src_size[0], height=src_size[1], leaky_q=LEAKY_Q, src=src, src_caps=src_caps,
                                accelerated_sink_caps=accelerated_sink_caps,
                                sink_caps=sink_caps, sink_element=SINK_ELEMENT)
     
     print('Gstreamer pipeline: ', pipeline)
     pipeline = Gst.parse_launch(pipeline)
     appsink = pipeline.get_by_name('appsink')
-    overlay = pipeline.get_by_name('overlay')    
+    overlay = pipeline.get_by_name('overlay')
 
     appsink.connect('new-sample', partial(on_new_sample,
                                           overlay=overlay,
