@@ -46,6 +46,26 @@ EDGES = (
     ('right knee', 'right ankle'),
 )
 
+COLORS = {
+    'nose': '#ff0055',
+    'left eye': '#aa00ff',
+    'right eye': '#9b00aa',
+    'left ear': '#5500aa',
+    'right ear': '#ff00ff',
+    'left shoulder': '#aaff00',
+    'right shoulder': '#ff5500',
+    'left elbow': '#55ff00',
+    'right elbow': '#ffaa00',
+    'left wrist': '#00ff00',
+    'right wrist': '#ffff00',
+    'left hip': '#00aaff',
+    'right hip': '#00ff55',
+    'left knee': '#0055ff',
+    'right knee': '#00ffaa',
+    'left ankle': '#0000ff',
+    'right ankle': '#00ffff',
+}
+
 
 def shadow_text(dwg, x, y, text, font_size=16):
     dwg.add(dwg.text(text, insert=(x + 1, y + 1), fill='black',
@@ -54,19 +74,19 @@ def shadow_text(dwg, x, y, text, font_size=16):
                      font_size=font_size, style='font-family:sans-serif'))
 
 
-def draw_pose(dwg, pose, x_scalar, y_scalar, color='yellow', threshold=0.2):
+def draw_pose(dwg, pose, x_scalar, y_scalar, threshold=0.2):
     xys = {}
     for label, keypoint in pose.keypoints.items():
         if keypoint.score < threshold: continue
         xys[label] = (int(keypoint.yx[1] * x_scalar), int(keypoint.yx[0] * y_scalar))
         dwg.add(dwg.circle(center=(int(keypoint.yx[1] * x_scalar), int(keypoint.yx[0] * y_scalar)), r=5,
-                           fill='cyan', fill_opacity=keypoint.score, stroke=color))
+                           fill=COLORS[label], fill_opacity=keypoint.score, stroke=color))
 
     for a, b in EDGES:
         if a not in xys or b not in xys: continue
         ax, ay = xys[a]
         bx, by = xys[b]
-        dwg.add(dwg.line(start=(ax, ay), end=(bx, by), stroke=color, stroke_width=2))
+        dwg.add(dwg.line(start=(ax, ay), end=(bx, by), stroke=COLORS[a], stroke_width=2 stroke_opacity=0.2))
 
 
 def run(callback):
