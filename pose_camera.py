@@ -54,12 +54,12 @@ def shadow_text(dwg, x, y, text, font_size=16):
                      font_size=font_size, style='font-family:sans-serif'))
 
 
-def draw_pose(dwg, pose, color='yellow', threshold=0.2):
+def draw_pose(dwg, pose, x_scalar, y_scalar, color='yellow', threshold=0.2):
     xys = {}
     for label, keypoint in pose.keypoints.items():
         if keypoint.score < threshold: continue
-        xys[label] = (int(keypoint.yx[1]), int(keypoint.yx[0]))
-        dwg.add(dwg.circle(center=(int(keypoint.yx[1]), int(keypoint.yx[0])), r=5,
+        xys[label] = (int(keypoint.yx[1] * x_scalar), int(keypoint.yx[0] * y_scalar))
+        dwg.add(dwg.circle(center=(int(keypoint.yx[1] * x_scalar), int(keypoint.yx[0] * y_scalar)), r=5,
                            fill='cyan', fill_opacity=keypoint.score, stroke=color))
 
     for a, b in EDGES:
@@ -99,7 +99,11 @@ def run(callback):
 
     print('Loading model: ', model)
     engine = PoseEngine(model, mirror=False)
-    gstreamer2.run_pipeline(partial(callback, engine),
+
+    x_scalar = src_size[0] / appsink_size[0]
+    y_scalar = src_size[1] / appsink_size[1]
+    
+    gstreamer2.run_pipeline(partial(callback, engine, x_scalar, y_scalar),
                            src_size, appsink_size, camera)
 
 
@@ -110,7 +114,7 @@ def main():
     sum_process_time = 0
     sum_inference_time = 0
 
-    def render_overlay(engine, image, svg_canvas):
+    def render_overlay(engine, x_scalar, y_scalar, image, svg_canvas):
         nonlocal n, sum_fps, sum_process_time, sum_inference_time, last_time
         start_time = time.monotonic()
         outputs, inference_time = engine.DetectPosesInImage(image)
@@ -127,7 +131,7 @@ def main():
 
         shadow_text(svg_canvas, 10, 20, text_line)
         for pose in outputs:
-            draw_pose(svg_canvas, pose)
+            draw_pose(svg_canvas, pose, x_scalar, y_scalar)
 
     run(render_overlay)
 
