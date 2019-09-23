@@ -70,15 +70,15 @@ def run_pipeline(user_function,
         SRC_CAPS = "video/x-raw(memory:NVMM),format=(string)NV12,framerate=(fraction)120/1,width=(int){width},height=(int){height}"
         FINAL_Q = "{leaky_q}"
     elif camera == 'realsense':
-        SRC = """v4l2src device=/dev/video13 do-timestamp=true ! {src_caps}"""
-        SRC_CAPS = "'video/x-raw(memory:NVMM),format=(string)YUY2,framerate=(fraction)30/1,width=(int){width},height=(int){height}'"
+        SRC = """v4l2src device=/dev/video3 do-timestamp=true ! {src_caps}"""
+        SRC_CAPS = "video/x-raw,format=(string)YUY2,framerate=(fraction)30/1,width=(int){width},height=(int){height}"
         FINAL_Q = "{leaky_q}"
 
     PIPELINE = """ {src} 
         ! tee name=t
-        t. ! nvvidconv ! {accelerated_sink_caps} ! videoconvert ! {sink_caps} ! {leaky_q} ! {sink_element}
-        t. ! nvvidconv ! video/x-raw,format=(string)BGRx ! videoconvert ! rsvgoverlay name=overlay ! videoconvert ! nvvidconv
-           ! {final_q} ! nveglglessink window-width={width} window-height={height}
+        t. ! nvvidconv ! video/x-raw(memory:NVMM) ! nvvidconv ! {accelerated_sink_caps} ! videoconvert ! {sink_caps} ! {leaky_q} ! {sink_element}
+        t. ! nvvidconv ! video/x-raw(memory:NVMM),format=(string)BGRx ! nvvidconv ! video/x-raw ! videoconvert ! rsvgoverlay name=overlay ! videoconvert ! nvvidconv
+           ! {final_q} ! nvegltransform ! nveglglessink window-width={width} window-height={height}
     """
 
     ACCELERATED_SINK_CAPS = "video/x-raw,format=RGBA,width={width},height={height}"
